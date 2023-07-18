@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_63c6c421_9632_4502_9e0d_2b0641b15e50_Output_Variables_vBatchrun = Any
+

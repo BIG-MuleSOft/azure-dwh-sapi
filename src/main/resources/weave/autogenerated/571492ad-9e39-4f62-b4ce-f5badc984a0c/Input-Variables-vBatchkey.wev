@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_571492ad_9e39_4f62_b4ce_f5badc984a0c_Input_Variables_vBatchkey = Any
+

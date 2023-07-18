@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd">
+	<flow name="customer-queue-reprocessingFlow" doc:id="c061dcb1-ace5-41f8-acd3-1a3dd16c9cce" >
+		<http:listener doc:name="Listener" doc:id="07aff782-f2fb-4b86-9285-8e4524c9ab1d" config-ref="HTTP_Listener_config" path="/customer-reprocessing"/>
+		<json-logger:logger doc:name="Customer Data Reprocessing Started" doc:id="dd701f85-ba35-4e07-a469-06539f9faa23" config-ref="JSON_Logger_Config" message="Customer Data Reprocessing Started">
+			<json-logger:content ><![CDATA[#[import modules::JSONLoggerModule output application/json ---
+{
+    
+}]]]></json-logger:content>
+		</json-logger:logger>
+		<jms:consume doc:name="customer-queue  reprocessing" doc:id="7a2f20d4-2fc5-462f-b376-dbfede796ccb" config-ref="JMS_Config" destination="${activemq.reprocessingCustomerQueue}" contentType="application/json"/>
+		<ee:transform doc:name="Set batchrun &amp; JSON Payload" doc:id="850057da-b09b-4cef-9a15-37c1d07d05e1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="vBatchrun" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.properties.userProperties.batchRuntime]]></ee:set-variable>
+				<ee:set-variable variableName="totalReprocessingRecords" ><![CDATA[%dw 2.0
+output application/json
+---
+sizeOf(payload)]]></ee:set-variable>
+				<ee:set-variable variableName="vBatchkey" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.properties.userProperties.batchkey]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="customerdata-reprocessing-batchjob-Flow" doc:id="77844c20-de1d-4cf9-83e0-1d6fe6cbbfab" name="customerdata-reprocessing-batchjob-Flow"/>
+		<json-logger:logger doc:name="Customer Data Reprocessing Completed" doc:id="27e71cda-0514-4e14-a3d0-4c27ee7e3d00" config-ref="JSON_Logger_Config" message="Customer Data Reprocessing Completed" tracePoint="END">
+			<json-logger:content ><![CDATA[#[import modules::JSONLoggerModule output application/json ---
+{
+    
+}]]]></json-logger:content>
+		</json-logger:logger>
+	</flow>
+	<flow name="customerdata-reprocessing-batchjob-Flow" doc:id="a75059cd-63aa-4321-81e1-561934e2e199" >
+		<ee:transform doc:name="Total Reprocessing Records" doc:id="f71667ca-a6e6-476e-bae3-cb8b6e5ba0d0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="customerdata-reprocessing-flowBatch_Job" doc:id="8a81d0f2-01b4-49ad-b857-a9502a87a0dd" maxFailedRecords="2">
+			<batch:process-records >
+				<batch:step name="SuccessRecords" doc:id="4ddffe45-91d7-4167-9186-2330780f6689" acceptPolicy="ALL">
+					<ee:transform doc:name="Mapping" doc:id="692fedcd-c637-415d-afd7-b3233d54bb8e" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+        "CustomerId": payload.CUSTID,
+        "CustomerName": payload.CUSTN,
+        "CustomerLocation": payload.CUSTL,
+        "CustomerStatus": payload.CUSTST,
+        "CustomerSubscription": payload.CUSTME,
+        "CustomerPriority": payload.CUSTPRT,
+        "CustomerIndustry": payload.CUSTIND,
+        "CustomerStartDate": payload.CUSTSUBDATE
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="10b4bac4-d807-4e51-8c71-84b80423fded" size="50">
+						<ee:transform doc:name="To JSON" doc:id="7f6ebe42-f220-466a-b2c1-b871b9fc1943" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<db:insert doc:name="Azure DWH" doc:id="937dbdc1-ce4a-4f45-8277-9b4bac465b09" config-ref="Azure_DWH_Database_Config" >
+							<db:sql ><![CDATA[INSERT INTO [dbo].[Customer]([CustomerId],[CustomerName],[CustomerLocation],[CustomerStatus],[CustomerSubscription],[CustomerPriority],[CustomerIndustry],[CustomerStartDate])
+VALUES (:CustomerId,:CustomerName,:CustomerLocation,:CustomerStatus,:CustomerSubscription,:CustomerPriority,:CustomerIndustry,:CustomerStartDate)]]></db:sql>
+							<db:input-parameters ><![CDATA[#[payload]]]></db:input-parameters>
+						</db:insert>
+					</batch:aggregator>
+				</batch:step>
+				<batch:step name="FailureRecords" doc:id="7b6d8ce5-c260-45f7-8b86-8b278a8e1ca8" acceptPolicy="ONLY_FAILURES">
+					<ee:transform doc:name="Failure Records" doc:id="177baf92-dd9d-4d20-b9bb-42fee763a274" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="24fe1601-f081-4608-b67d-d71ee822d86a" size="50">
+						<ee:transform doc:name="To JSON" doc:id="861513a6-e43e-4008-bb34-449897db7102" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<jms:publish doc:name="Published to reprocessingInvoiceQueue" doc:id="48658c79-a6b9-442d-b922-213b0818d5e7" config-ref="JMS_Config" destination="${activemq.reprocessingCustomerQueue}">
+							<jms:message >
+								<jms:properties ><![CDATA[#[{
+	"batchRuntime": vars.vBatchrun,
+	"batchkey": vars.vBatchkey
+}]]]></jms:properties>
+							</jms:message>
+						</jms:publish>
+					</batch:aggregator>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<ee:transform doc:name="Mapping to Postgres DB" doc:id="31b32934-eff0-42c5-8d1b-77f72a97b5ba">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "totalrecord": payload.loadedRecords,
+    "batchrun": vars.vBatchrun,
+    "totalsuccessrecord": payload.successfulRecords,
+    "sourcedatatype": "Customer",
+    "totalfailedrrecord": payload.failedRecords,
+    "status": "Reprocess-Completed",
+    "phase": "DHW",
+    "batchkey": vars.vBatchkey,
+    "flowruntime": vars.flowruntime.processingTime 
+ }
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<db:update doc:name="Insert status to CommonTrace  Table " doc:id="6fa056c1-c33f-4e83-b59b-9f3d8b09f283" config-ref="Postgres_Database_Config">
+			<db:sql><![CDATA[INSERT INTO public.commontrace(sourcedatatype,batchrun,totalrecord,totalsuccessrecord,totalfailedrrecord,status,phase,batchkey,flowruntime)
+VALUES ('Customer',:batchrun,:totalrecord,:totalsuccessrecord,:totalfailedrrecord,'Reprocess-Completed','DHW',:batchkey,:flowruntime);]]></db:sql>
+			<db:input-parameters><![CDATA[#[payload]]]></db:input-parameters>
+		</db:update>
+				<json-logger:logger doc:name="Reprocess Status Update" doc:id="b6b06007-647e-48d6-84b5-7c80a4ae8b4c" config-ref="JSON_Logger_Config" message="Reprocessing Status Inserted into CommonTrace  Table " tracePoint="FLOW">
+			<json-logger:content><![CDATA[#[import modules::JSONLoggerModule output application/json ---
+{
+    
+}]]]></json-logger:content>
+		</json-logger:logger>
+			</batch:on-complete>
+		</batch:job>
+	</flow>
+</mule>

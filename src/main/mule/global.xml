@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger" xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="68aad99a-c89f-4bb9-b67e-818d915ebe4a" >
+		<http:listener-connection host="${http-listener.host}" port="${http-listener.port}" />
+	</http:listener-config>
+	<db:config name="Azure_DWH_Database_Config" doc:name="Database Config" doc:id="c467fe8d-fd8c-4461-8f50-353f5d983ca1" >
+		<db:mssql-connection host="${azure-sqlserver.host}" port="${azure-sqlserver.port}" user="${secure::azure-sqlserver.user}" password="${secure::azure-sqlserver.password}" databaseName="${azure-sqlserver.databaseName}" />
+	</db:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="5e7e766a-0a81-4f06-b435-58c187495936" file="${env}.yaml" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="1ad526e5-4597-4c6f-9d58-b5bfc6395c19" file="${env}.yaml" key="${encryption.key}" >
+		<secure-properties:encrypt algorithm="Blowfish" />
+	</secure-properties:config>
+	<global-property doc:name="Global Property" doc:id="1ef2447d-afbe-4f41-98f2-0ecb89021022" name="env" value="dev" />
+	<global-property doc:name="Global Property" doc:id="244d4c7c-ed7b-4130-882f-b405b6123bc1" name="encryption.key" value="MuleSoft123" />
+	<jms:config name="JMS_Config" doc:name="JMS Config" doc:id="64643cb4-65fb-473e-b212-2b1ec3ccc9cb" >
+		<jms:active-mq-connection username="${secure::activemq.username}" password="${secure::activemq.password}" >
+			<jms:factory-configuration brokerUrl="${activemq.brokerurl}" />
+		</jms:active-mq-connection>
+	</jms:config>
+	<db:config name="Postgres_Database_Config" doc:name="Database Config" doc:id="a806ead0-7aa8-489d-b1ae-f14be6b16405" >
+		<db:generic-connection url="${postgresql.url}" driverClassName="${postgresql.driverClassName}" user="${secure::postgresql.user}" password="${secure::postgresql.password}" />
+	</db:config>
+	<json-logger:config name="JSON_Logger_Config" doc:name="JSON Logger Config" doc:id="e9717415-3ce4-4803-9ec3-f63972b39cec" environment="${env}" />
+</mule>

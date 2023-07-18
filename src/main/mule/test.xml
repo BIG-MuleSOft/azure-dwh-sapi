@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="customer-testFlow" doc:id="769937b2-7f92-4c0d-9734-0f79b7b4187d" >
+		<http:listener doc:name="Listener" doc:id="d1fa44e0-bc97-4201-a628-7a939cfc9b47" path="/customer-test" config-ref="HTTP_Listener_config"/>
+		<db:select doc:name="Select" doc:id="c18a7d7d-4a76-4ae4-aec9-caddd11f7714" config-ref="Azure_DWH_Database_Config">
+			<db:sql ><![CDATA[select * from [dbo].[Customer]]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="82d703f1-e960-4212-bc99-65c11465ebd6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="invoice-testFlow" doc:id="476c0e63-6f83-478c-8c44-6fe13c457575" >
+		<http:listener doc:name="Listener" doc:id="3fbfbec2-884e-4167-a92b-2420ded7e10f" path="/invoice-test" config-ref="HTTP_Listener_config"/>
+		<db:select doc:name="Select- Invoice Table" doc:id="11be1d91-3047-435f-982c-f2fe0c906db1" config-ref="Azure_DWH_Database_Config">
+			<db:sql ><![CDATA[select * from [dbo].[Invoice]]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="dd0cbe88-e586-42bb-a821-63a632789d8e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

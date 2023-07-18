@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd">
+	<flow name="invoice-queue-reprocessingFlow" doc:id="c061dcb1-ace5-41f8-acd3-1a3dd16c9cce" >
+		<http:listener doc:name="Listener" doc:id="07aff782-f2fb-4b86-9285-8e4524c9ab1d" config-ref="HTTP_Listener_config" path="/invoice-reprocessing"/>
+		<json-logger:logger doc:name="Invoice Data Reprocessing Started" doc:id="58b24337-6bc3-4a53-a50b-677c3bc388cb" config-ref="JSON_Logger_Config" message="Invoice Data Reprocessing Started">
+			<json-logger:content><![CDATA[#[import modules::JSONLoggerModule output application/json ---
+{
+    
+}]]]></json-logger:content>
+		</json-logger:logger>
+		<jms:consume doc:name=" invoice-queue for reprocessing" doc:id="7a2f20d4-2fc5-462f-b376-dbfede796ccb" config-ref="JMS_Config" destination="${activemq.reprocessingInvoiceQueue}" contentType="application/json"/>
+		<ee:transform doc:name="Set Batchrun &amp; JSON Payload" doc:id="7a548d87-baa8-4a2c-b7ce-883454f9fa91" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="vBatchrun" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.properties.userProperties.batchRuntime]]></ee:set-variable>
+				<ee:set-variable variableName="vBatchkey" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.properties.userProperties.batchkey]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="invoicedata-reprocessing-batchjob-Flow" doc:id="d3401210-12fc-40b1-877f-df0af5422b89" name="invoicedata-reprocessing-batchjob-Flow"/>
+		<json-logger:logger doc:name="Invoice Data Reprocessing Completed" doc:id="c747d219-a60d-4d85-8afc-bd2fd3b33946" config-ref="JSON_Logger_Config" message="Invoice Data Reprocessing Completed" tracePoint="END">
+			<json-logger:content ><![CDATA[#[import modules::JSONLoggerModule output application/json ---
+{
+    
+}]]]></json-logger:content>
+		</json-logger:logger>
+	</flow>
+	<flow name="invoicedata-reprocessing-batchjob-Flow" doc:id="63c6c421-9632-4502-9e0d-2b0641b15e50" >
+		<ee:transform doc:name="Total Reprocessing Records" doc:id="e668912d-52fc-42f4-b32a-b70ab0a6f06b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="invoicedata-reprocessing-flowBatch_Job" doc:id="4b22e9e0-1e1f-4369-afb7-48f10f6925fa" maxFailedRecords="2">
+			<batch:process-records >
+				<batch:step name="SuccessRecords" doc:id="c0302dde-0465-45cf-95f8-5b2122bf5c78" acceptPolicy="ALL">
+					<ee:transform doc:name="Mapping" doc:id="9e812871-ac8e-49d9-8162-15384cbb839b" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="07039b10-7a91-4a16-aa39-9f3b8cca1950" size="50">
+						<ee:transform doc:name="To JSON" doc:id="94c24607-88a3-48b3-89cf-b5f47420ea97" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<db:insert doc:name="Azure DWH" doc:id="982c1654-7cbc-4ae8-8eee-e825bfc77a4a" config-ref="Azure_DWH_Database_Config" >
+							<db:sql ><![CDATA[INSERT INTO [dbo].[Invoice]([InvoiceNumber],[InvoiceUser],[PurchaseNumber],[InvoiceStatus],[InvoiceAmount],[PaymentMode],[Industry],[InvoiceDate])
+VALUES (:InvoiceNumber,:InvoiceUser,:PurchaseNumber,:InvoiceStatus,:InvoiceAmount,:PaymentMode,:Industry,:InvoiceDate);]]></db:sql>
+							<db:input-parameters ><![CDATA[#[payload]]]></db:input-parameters>
+						</db:insert>
+					</batch:aggregator>
+				</batch:step>
+				<batch:step name="FailureRecords" doc:id="be436921-8a21-40b0-a8f5-2d5a5c62de44" acceptPolicy="ONLY_FAILURES">
+					<ee:transform doc:name="Failure Records" doc:id="eb905895-70b0-402f-9b75-ca4ac379fcef" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="decbd689-9b50-4b20-a058-2c46ac9b1fd0" size="50">
+						<ee:transform doc:name="To JSON" doc:id="f188f87d-b356-4c85-83f0-22cc6147befe" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<jms:publish doc:name="Published to reprocessingInvoiceQueue" doc:id="8364570b-10ae-45a8-a095-dc2293c340d7" config-ref="JMS_Config" destination="${activemq.reprocessingInvoiceQueue}">
+							<jms:message >
+								<jms:properties ><![CDATA[#[{
+	"batchRuntime": vars.vBatchrun,
+	"batchkey": vars.vBatchkey
+}]]]></jms:properties>
+							</jms:message>
+						</jms:publish>
+					</batch:aggregator>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<ee:transform doc:name="Mapping to Postgres DB" doc:id="7b0ec7b6-9ca5-4862-b2d6-51867c6fa28e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "totalrecord": payload.loadedRecords,
+    "batchrun": vars.vBatchrun,
+    "totalsuccessrecord": payload.successfulRecords,
+    "sourcedatatype": "Invoice",
+    "totalfailedrrecord": payload.failedRecords,
+    "status": "Reprocess-Completed",
+    "phase": "DHW",
+    "batchkey": vars.vBatchkey,
+    "flowruntime": vars.flowruntime.processingTime 
+ }
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<db:update doc:name="Insert status to CommonTrace  Table " doc:id="563615d3-06a9-4b3e-b46b-5980cfcf65bd" config-ref="Postgres_Database_Config">
+			<db:sql><![CDATA[INSERT INTO public.commontrace(sourcedatatype,batchrun,totalrecord,totalsuccessrecord,totalfailedrrecord,status,phase,batchkey,flowruntime)
+VALUES ('Invoice',:batchrun,:totalrecord,:totalsuccessrecord,:totalfailedrrecord,'Reprocess-Completed','DHW',:batchkey,:flowruntime);]]></db:sql>
+			<db:input-parameters><![CDATA[#[payload]]]></db:input-parameters>
+		</db:update>
+				<json-logger:logger doc:name="Reprocess Status Update" doc:id="80e13cd8-72e7-416b-a017-e7ecb34fbc2f" config-ref="JSON_Logger_Config" message="Reprocessing Status into CommonTrace  Table " tracePoint="FLOW">
+			<json-logger:content><![CDATA[#[import modules::JSONLoggerModule output application/json ---
+{
+    
+}]]]></json-logger:content>
+		</json-logger:logger>
+			</batch:on-complete>
+		</batch:job>
+	</flow>
+</mule>

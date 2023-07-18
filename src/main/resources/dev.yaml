@@ -1,0 +1,42 @@
+# HTTP Listener Configuration
+http-listener:
+  host: "localhost"
+  port: "8082"
+  path: "/customer-reprocessing"
+  
+# Azure DWH Configuration
+azure-sqlserver:
+  host: "sqlserver13jul.database.windows.net123"
+  port: "1433"
+  user: "![Kayj12M/53XQEZ+7VNOSxQ==]"
+  password: "![TT91Ek0z068zxFUvpLBo2R5XnYf5aoIF]"
+  databaseName: "fertilizerDemo13Jul"
+  
+# JMS Active MQ Server Configuration
+activemq:
+  brokerurl: "tcp://LAPTOP-U18SJOMS:61616"
+  username: "![dzwMPNNWc94=]"
+  password: "![dzwMPNNWc94=]"
+  customerQueue:  "customer-queue"
+  invoiceQueue:  "invoice-queue"
+  reprocessingCustomerQueue:  "sap-customerdata-reprocessing-queue"
+  reprocessingInvoiceQueue:  "sap-invoicedata-reprocessing-queue"
+  
+# Postgres DB Configuration
+postgresql:
+  url: "jdbc:postgresql://stampy.db.elephantsql.com/iyciylgw"
+  driverClassName: "org.postgresql.Driver"
+  user: "![UXzhQOVkrdJJi6gv1vqvoQ==]"
+  password:  "![U38AjexCujsaxkJGzmvogvxMunuXF9MTxuuYoDWKXXPMBKBDsJNRhQ==]"
+  
+# JSON Logger
+json.logger:
+  application.name: "azure-s-api"
+  application.version:  "1.0.0"
+  env:  "dev"
+
+
+
+  
+
+  
